@@ -59,8 +59,9 @@ print(f"sum log p = {total.item():.3f}   mean log p = {mean.item():.3f}")
 # %%
 def my_dpo_loss(pc, pr, rc, rr, beta=0.1):
     """pc/pr: policy log-prob chosen/rejected; rc/rr: reference. Trả về loss trung bình."""
-    # TODO: viết bằng torch.nn.functional.logsigmoid
-    return None
+    policy_margin = pc - pr
+    reference_margin = rc - rr
+    return -torch.nn.functional.logsigmoid(beta * (policy_margin - reference_margin)).mean()
 
 
 # %%
@@ -115,6 +116,12 @@ for name, (pc_, pr_) in scenarios.items():
 
 # %% [markdown]
 # **RPO** thêm NLL của câu chosen vào loss: kịch bản B bị phạt vì chosen bị đẩy xuống.
+#
+# **Trả lời:** Margin vẫn có thể tăng khi log-xác suất của `chosen` giảm, vì
+# DPO tối ưu *hiệu* giữa log-tỉ lệ của `chosen` và `rejected`, chứ không buộc
+# xác suất tuyệt đối của `chosen` phải tăng. Nếu `chosen` giảm 3 nat nhưng
+# `rejected` giảm 5 nat so với reference, chênh lệch tương đối vẫn tăng 2 nat;
+# vì thế loss giảm dù cả hai câu đều kém khả dĩ hơn. Đó là likelihood displacement.
 
 # %%
 for name, (pc_, pr_) in scenarios.items():
