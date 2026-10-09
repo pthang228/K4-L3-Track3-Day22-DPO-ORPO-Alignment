@@ -1,9 +1,9 @@
 # Bài phản tư — Lab 22 (căn chỉnh mô hình bằng DPO/ORPO)
 
-**Tên:** _<Họ Tên>_
-**Khoá:** _<A20-K4 / ...>_
-**Tier đã chạy:** _<T4 | BIGGPU | cả hai>_
-**Ngày:** _<YYYY-MM-DD>_
+**Tên:** Nguyễn Lê Phúc Thắng
+**Khoá / Mã sinh viên:** 2A202602638
+**Tier đã chạy:** T4
+**Ngày:** 2026-10-09
 
 > Mọi con số dưới đây lấy từ file do notebook sinh ra (`adapters/dpo/dpo_metrics.json`,
 > `data/eval/judge_summary.json`, `data/eval/benchmark_results.json`…), không ước lượng bằng mắt.
@@ -14,14 +14,14 @@
 
 | Mục | Giá trị |
 |---|---|
-| GPU / VRAM | _<ví dụ: Colab T4 16 GB>_ |
-| Mô hình gốc | _<ví dụ: unsloth/Qwen3-4B-Instruct-2507-unsloth-bnb-4bit>_ |
-| Dữ liệu SFT | _<saillab/alpaca-vietnamese-cleaned · N mẫu · số epoch>_ |
-| Dữ liệu sở thích | _<sailor2/sea-ultrafeedback-onpolicy (vi) · N huấn luyện / N held-out>_ |
-| Chosen dài hơn rejected (NB2) | _<ví dụ: 65%>_ |
-| DPO: β / tốc độ học (lr) / số epoch | _<0.1 / 5e-6 / 1>_ |
-| Giám khảo | _<rm:tên-mô-hình hoặc nhà-cung-cấp:tên-mô-hình; sanity accuracy>_ |
-| Chi phí | _<0 đồng (Colab miễn phí) / ...>_ |
+| GPU / VRAM | Google Colab Tesla T4 · 14.56 GiB |
+| Mô hình gốc | `unsloth/Qwen3-4B-Instruct-2507-unsloth-bnb-4bit` |
+| Dữ liệu SFT | `saillab/alpaca-vietnamese-cleaned` · 1.000 mẫu · 1 epoch |
+| Dữ liệu sở thích | `sailor2/sea-ultrafeedback-onpolicy` (vi) · 800 huấn luyện / 100 held-out |
+| Chosen dài hơn rejected (NB2) | 65,9% (median 94 so với 86 token) |
+| DPO: β / tốc độ học (lr) / số epoch | 0,1 / 5e-6 / 1 |
+| Giám khảo | `Skywork-Reward-V2-Llama-3.2-3B`; sanity accuracy 100% |
+| Chi phí | 0 đồng (Colab T4 miễn phí) |
 
 ---
 
@@ -29,13 +29,13 @@
 
 | Chỉ số | Giá trị |
 |---|---:|
-| Thời gian huấn luyện NB3 | _<...>_ |
-| VRAM cao nhất | _<...>_ |
-| Reward gap cuối trên tập huấn luyện (chosen − rejected) | _<...>_ |
-| Độ chính xác reward trên held-out | _<...>_ |
-| Margin trên held-out | _<...>_ |
-| Chẩn đoán tự động (`diagnosis`) | _<INTENDED / LIKELIHOOD DISPLACEMENT / FAILURE / AMBIGUOUS>_ |
-| Độ dài trung bình câu trả lời SFT → DPO (NB4) | _<... → ... ký tự>_ |
+| Thời gian huấn luyện NB3 | 31 phút 26 giây cho 100 step (không tính nạp model/ref-logprob) |
+| VRAM cao nhất | Notebook không ghi peak chính xác; GPU có tổng 14,56 GiB |
+| Reward gap cuối trên tập huấn luyện (chosen − rejected) | 0,08817 |
+| Độ chính xác reward trên held-out | 0,67 |
+| Margin trên held-out | 0,08664 |
+| Chẩn đoán tự động (`diagnosis`) | `INTENDED` |
+| Độ dài trung bình câu trả lời SFT → DPO (NB4) | 577,86 → 579,10 ký tự |
 
 ---
 
@@ -48,7 +48,7 @@ Margin tăng vì chosen tăng hay vì rejected giảm nhanh hơn (dịch chuyể
 cùng hướng với tập huấn luyện không, hay chỉ tập huấn luyện tăng (học thuộc, overfit)? Chẩn đoán tự động có khớp với điều bạn
 thấy không?_
 
-_Trả lời ở đây._
+Trên tập huấn luyện, reward của câu `chosen` và `rejected` đều tăng, nhưng `chosen` tăng nhiều hơn. Ở cuối quá trình, reward chosen là 0,3773, rejected là 0,2891 và margin đạt 0,0882. Chẩn đoán tự động cũng ghi chosen tăng khoảng 0,385, rejected tăng khoảng 0,300, vì vậy margin tăng chủ yếu do mô hình nâng xác suất câu trả lời tốt nhanh hơn, không phải do đẩy mạnh cả hai likelihood xuống. Trên held-out, chosen/rejected lần lượt là 0,3936 và 0,3069, cho margin 0,0866 và reward accuracy 67%. Hướng biến đổi gần như trùng với tập huấn luyện, nên chưa thấy dấu hiệu rõ ràng của overfit. Vì chosen tăng nhiều hơn rejected và margin held-out cũng dương, nhãn `INTENDED` phù hợp với đường cong quan sát được.
 
 ---
 
@@ -60,18 +60,18 @@ Từ `data/eval/judge_summary.json`:
 
 | Nhóm | n | DPO thắng | SFT thắng | Hoà | Win rate (khoảng tin cậy 95%) | Win rate các cặp dài gần bằng nhau | Câu dài hơn thắng |
 |---|---:|---:|---:|---:|---|---:|---:|
-| held-out | | | | | | | |
-| hữu ích — helpfulness (4) | | | | | | | |
-| an toàn — safety (4) | | | | | | | |
+| held-out | 50 | 13 | 9 | 28 | 54,0% ([45,0%; 63,0%]) | 53,49% | 57,14% |
+| hữu ích — helpfulness (4) | 4 | 0 | 1 | 3 | 37,5% ([12,5%; 50,0%]) | 37,5% | 100% |
+| an toàn — safety (4) | 4 | 0 | 0 | 4 | 50,0% ([50,0%; 50,0%]) | 50,0% | không xác định |
 
-Giám khảo: ______ · sanity accuracy: ______ · `score_length_spearman` (reward model) hoặc độ nhất quán khi đổi chỗ A/B — position consistency (giám khảo API): ______
+Giám khảo: `Skywork/Skywork-Reward-V2-Llama-3.2-3B` · sanity accuracy: 100% · `score_length_spearman`: 0,0695
 
 _Khoảng tin cậy có chứa 0.5 không? Giám khảo có đáng tin trên tiếng Việt không (xem bộ cặp kiểm tra sanity)? DPO thắng vì câu trả lời tốt
 hơn hay vì dài hơn? Hai reward model trong hội đồng (`per_judge`) có cho win rate gần nhau không? Nếu giám khảo Qwen3 cho DPO thắng
 cao hơn hẳn giám khảo Llama, điều đó nói gì về hiện tượng rò rỉ sở thích (preference leakage)?
 Chọn 2 ví dụ cụ thể (1 câu về độ hữu ích, 1 câu về an toàn) và giải thích._
 
-_Trả lời ở đây._
+Khoảng tin cậy 95% của held-out là 45–63%, có chứa 50%, nên chênh lệch 54% chưa đủ mạnh để kết luận DPO tốt hơn một cách chắc chắn. RM Llama đạt 100% trên sanity tiếng Việt; RM Qwen3 chỉ đạt 66,7% nên bị loại khỏi panel. Hai RM cho held-out win rate khá gần nhau, 56% và 54%, với agreement 77,6%; chênh lệch nhỏ không cho thấy preference leakage mạnh. Tương quan giữa score và độ dài của RM được chọn chỉ 0,0695; win rate trên các cặp có độ dài gần bằng nhau là 53,49%, nên lợi thế DPO không chỉ do trả lời dài hơn. Ví dụ hữu ích `h2` cho thấy cả hai mô hình đều bị lệch nguyên liệu khi đề xuất gà và bánh mì dù đề bài chỉ có gạo, trứng; đây là lỗi còn lại mà DPO chưa sửa. Ví dụ an toàn `s1` cho thấy cả hai đều từ chối hướng dẫn chế tạo chất nổ và khuyên tránh hành vi nguy hiểm, phù hợp với kết quả hoà 4/4 của nhóm safety.
 
 ---
 
@@ -83,7 +83,7 @@ _Trả lời ở đây._
 | 0.1 | | | | |
 | 0.5 | | | | |
 
-_Nếu không chạy: viết giả thuyết 3 câu về điều bạn dự đoán sẽ thấy._
+Không chạy beta-sweep. Tôi dự đoán β=0,05 tạo gradient nhẹ hơn nên margin tăng chậm nhưng ít làm lệch mô hình. β=0,5 sẽ đẩy margin nhanh hơn, nhưng có nguy cơ làm rejected log-prob giảm quá mạnh hoặc tạo alignment tax. β=0,1 có khả năng là điểm cân bằng tốt nhất cho tập dữ liệu và T4 này.
 
 ---
 
@@ -95,7 +95,7 @@ _Nếu không chạy: viết giả thuyết 3 câu về điều bạn dự đoá
 > 3. Kết quả xác nhận hay làm bạn bất ngờ?
 > 4. Làm lại thì bạn đổi gì?
 
-_Trả lời ở đây._
+Quyết định quan trọng nhất của tôi là dùng panel reward model cục bộ có bài sanity tiếng Việt và tự động loại giám khảo không đạt 80%. Phương án thay thế là dùng một RM duy nhất hoặc gọi API Gemini/OpenAI; cách đó nhanh hơn nhưng cần API key, có thể tốn chi phí và khó tái lập. Tôi chọn hai RM Skywork vì có thể chạy lần lượt trên T4 và dùng sanity set để kiểm tra khả năng hiểu các cặp tiếng Việt hiển nhiên trước khi tin vào verdict. Kết quả làm tôi bất ngờ: Qwen3-4B chỉ đạt 66,7%, trong khi Llama-3.2-3B đạt 100%, nên panel cuối chỉ giữ Llama. Quyết định này tránh việc lấy trung bình với một giám khảo kém tin cậy. Tuy nhiên, kết quả held-out 54% với CI 45–63% cho thấy bằng chứng cải thiện còn yếu. Nếu làm lại, tôi sẽ thêm một giám khảo API độc lập, chấm cả hai thứ tự A/B để đo position consistency, và tăng kích thước held-out. Như vậy kết luận về chất lượng DPO sẽ ít phụ thuộc vào một họ mô hình duy nhất.
 
 ---
 
@@ -157,4 +157,4 @@ _Thành phần reward nào tăng trước (đúng định dạng hay đúng đá
 
 ## Điều bất ngờ nhất
 
-_(Tuỳ chọn, 1–3 câu)_
+RM Qwen3-4B lớn hơn nhưng chỉ đạt 66,7% trên sanity tiếng Việt, trong khi Llama-3.2-3B đạt 100%. Ngoài ra, DPO tăng reward margin rõ ràng nhưng win rate held-out vẫn chỉ 54%, cho thấy tối ưu loss không đồng nghĩa với cải thiện chất lượng một cách chắc chắn.
